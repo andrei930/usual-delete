@@ -1,4 +1,4 @@
-# Privacy policy — Usual Delete 1.0.1
+# Privacy policy — Usual Delete 1.0.2
 
 Updated November 2, 2026.
 

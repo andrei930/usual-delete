@@ -6,9 +6,9 @@ A Chrome extension for Gmail that selects unread inbox conversations from sender
 
 [Download the latest extension ZIP](https://github.com/andrei930/usual-delete/releases/latest/download/usual-delete.zip) · [Releases](https://github.com/andrei930/usual-delete/releases)
 
-## Version 1.0.1
+## Version 1.0.2
 
-Fixed two issues confirmed in live Gmail: importance is now read from the accessible switch around Gmail’s icon, and Trash pagination activates Gmail’s mouse-down/up toolbar handlers. The original version treated unlabeled importance icons as protected mail and timed out when its click did not advance the Trash page. The regression fixture now reproduces both native behaviors.
+The selection button now sits in Gmail’s toolbar, between Select all and Refresh. Floating buttons have been removed, and successful selection shows only a brief status message. Open **Settings & learning** from the extension’s Chrome toolbar icon when needed.
 
 To update an existing unpacked installation, replace its folder contents, click **Reload** on its Chrome Extensions card, then refresh Gmail. Its permissions and saved learning are unchanged.
 
@@ -18,8 +18,8 @@ To update an existing unpacked installation, replace its folder contents, click 
 2. In Chrome, open **Manage Extensions** from the Extensions menu, or type `chrome://extensions` in the address bar.
 3. Turn on **Developer mode** in the upper right.
 4. Click **Load unpacked** and select the `usual-delete` folder containing `manifest.json`.
-5. Refresh your Gmail tab. A **Select usual deletes** button and a settings gear appear in the lower right.
-6. Click the gear, then **Learn from Trash**. This scans up to 10 pages of unread conversations in Trash and returns to your previous view. It does not open messages. If you prefer, add a complete sender address under **Manage sender rules** instead.
+5. Refresh your Gmail tab. The **Select usual deletes** button appears in Gmail’s toolbar, between Select all and Refresh.
+6. Open **Usual Delete** from Chrome’s Extensions menu (or its pinned icon), choose **Settings & learning**, then **Learn from Trash**. This scans up to 10 pages of unread conversations in Trash and returns to your previous view. It does not open messages. If you prefer, add a complete sender address under **Manage sender rules** instead.
 7. Click **Select usual deletes**. It searches your inbox for qualifying unread mail and selects matching conversations. Review them, then press Gmail’s Delete button yourself.
 
 You can also pin the extension to Chrome’s toolbar and use its popup. No purchase, API key, account connection, or build step is required. This is an unpacked extension, not a Chrome Web Store listing. Chrome or your organization may restrict developer-mode extensions.

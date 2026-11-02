@@ -1,6 +1,12 @@
 # Verification report
 
-Verified November 2, 2026. Extension version 1.0.1.
+Verified November 2, 2026. Extension version 1.0.2.
+
+## Toolbar verification for 1.0.2
+
+The installed extension was updated and inspected in an existing Gmail session. Its button appears immediately after Select all and before Refresh, with no floating action controls. Text contrast was checked against Gmail’s dark theme, and settings were opened successfully through Chrome’s Extensions menu. No email was opened or deleted during the layout check.
+
+The automated browser suite additionally verifies toolbar placement, removal of the floating controls, restoration after Gmail removes the toolbar element, selection without opening settings, and automatic dismissal of the brief feedback message.
 
 ## Live Gmail verification for 1.0.1
 
@@ -11,7 +17,7 @@ Two live DOM differences were confirmed and fixed: Gmail puts importance state o
 ## Completed
 
 - **19 passing Node tests** for sender learning, minimum evidence, negative feedback, overrides, safe search construction, invalid inputs, event deduplication, account isolation, concurrent writes across tabs, paused learning, storage failures, sender removal, and reset scope.
-- **20 passing browser checks** using the actual unpacked Manifest V3 extension, including its actual service worker and Chrome local-storage API, in a fresh temporary Chromium for Testing profile controlled by Playwright 1.64.1.
+- **25 passing browser checks** using the actual unpacked Manifest V3 extension, including its actual service worker and Chrome local-storage API, in a fresh temporary Chromium for Testing profile controlled by Playwright 1.64.1.
 - The browser checks cover first-run state; two-page Trash training; returning to the original inbox; repeated scan deduplication; no messages opened during learning; current-page protection of read/starred/important/mixed-sender/unknown-sender rows; no automatic deletion; manual rules; never-select overrides; clearing unrelated selections when no candidates match; avoiding global selection when mixed-sender rows are visible; native selection across all search pages; inbox-only unread search; repeated selection; navigation cancellation; opening-based negative feedback; confidence reduction; Gmail account changes; and absence of browser JavaScript errors.
 - Syntax checks for production JavaScript, manifest parsing, icon presence and dimensions, and ZIP integrity.
 - Visual inspection of the extension’s settings panel in a synthetic Gmail inbox. The preview file shows synthetic messages, not anyone’s real mailbox.

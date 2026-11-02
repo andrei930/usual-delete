@@ -93,6 +93,13 @@
     const nodes = root ? [...root.querySelectorAll('.T-Jo[role="checkbox"], [role="toolbar"] [role="checkbox"]')] : [];
     return nodes.find(node => visible(node) && !node.closest('tr.zA, [role="row"]')) || null;
   }
+  function toolbarAnchor() {
+    const bulk = bulkControl();
+    if (!bulk) return null;
+    // Place our control after the complete Select group, including its dropdown.
+    // Gmail keeps this group while swapping Refresh for selected-message actions.
+    return bulk.closest('.G-Ni') || bulk;
+  }
   function allResultsLink() {
     const root = main();
     if (!root) return null;
@@ -102,6 +109,6 @@
   function allResultsSelected() {
     return [...(main()?.querySelectorAll('.v1, .aeF .ya, .Tm .ya, .aeF [role="status"], [data-ud-all-selected]') || [])].some(node => visible(node) && /all\b.*\b(conversations|messages)\b.*\bselected|toate\b.*\bselectate/i.test(node.textContent));
   }
-  const api = {visible, delay, label, main, routeKey, accountEmail, parseRow, rows, isTrash, isInbox, isList, waitFor, stableRows, setSelected, activateButton, bulkControl, allResultsLink, allResultsSelected};
+  const api = {visible, delay, label, main, routeKey, accountEmail, parseRow, rows, isTrash, isInbox, isList, waitFor, stableRows, setSelected, activateButton, bulkControl, toolbarAnchor, allResultsLink, allResultsSelected};
   globalThis.UsualGmail = api;
 })();

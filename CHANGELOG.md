@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 — 2026-11-02
+
+- Move Select usual deletes into Gmail’s toolbar, between Select all and Refresh.
+- Remove the floating action buttons and keep settings available through the Chrome toolbar popup.
+- Keep the settings panel closed during normal selection and show brief feedback that disappears automatically.
+- Restore the selection button when Gmail replaces toolbar elements.
+
 ## 1.0.1 — 2026-11-02
 
 - Read Gmail’s importance state from the accessible switch surrounding its icon.

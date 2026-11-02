@@ -10,7 +10,7 @@
     <style>
       :host{all:initial;position:fixed;right:24px;bottom:22px;z-index:2147483646;font-family:Arial,sans-serif;color:#272b29;color-scheme:light}
       *{box-sizing:border-box}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #266a55;outline-offset:3px}button:disabled{opacity:.5;cursor:wait}
-      .dock{display:flex;align-items:center;justify-content:flex-end;gap:8px}.launch,.gear{height:44px;border:1px solid #d6ddd5;border-radius:13px;box-shadow:0 4px 22px #17322322;background:#f9faf5;color:#243d32;font-size:13px;font-weight:700}.launch{padding:0 17px}.launch span{color:#267457;margin-right:7px}.gear{width:44px;font-size:20px}.launch:hover,.gear:hover{background:#edf3e9}
+      .toast{position:fixed;z-index:2147483646;width:max-content;max-width:min(330px,calc(100vw - 32px));padding:10px 13px;border:1px solid #cdd6c9;border-radius:8px;background:#fafbf6;color:#314b3a;box-shadow:0 3px 14px #1732231a;font-size:12px;line-height:1.5;pointer-events:none}
       .panel{width:392px;max-width:calc(100vw - 32px);max-height:calc(100vh - 104px);overflow:auto;margin-bottom:12px;border:1px solid #d8dfd4;border-radius:22px;background:#fafbf6;box-shadow:0 16px 70px #16332430}.panel[hidden],[hidden]{display:none!important}.head{padding:23px 24px 0;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:800;font-size:12px;letter-spacing:1.6px}.brand i{font-style:normal;color:#2e7859;font-size:19px;margin-right:7px}.close{background:none;border:0;color:#57665c;font-size:23px;padding:0 3px}.body{padding:20px 24px 22px}h1{margin:0;font-size:29px;line-height:1.16;letter-spacing:-1.2px;font-weight:600}.sub{font-size:13px;color:#677268;line-height:1.55;margin:11px 0 17px}.account{font-size:11px;color:#677268;overflow-wrap:anywhere}.stats{display:flex;gap:9px;margin:18px 0}.stat{flex:1;padding:13px 12px;background:#edf2e8;border-radius:12px}.stat b{display:block;font-size:23px;font-weight:500;margin-bottom:5px}.stat span{font-size:11px;color:#58675b}
       .primary{background:#285f49;color:white;border:0;border-radius:11px;padding:14px 16px;width:100%;font-size:13px;font-weight:700;display:block}.primary:hover{background:#1b4c38}.secondary{background:transparent;border:1px solid #cdd6c9;border-radius:10px;padding:11px 12px;width:100%;color:#314b3a;font-size:12px;margin-top:9px}.secondary:hover{background:#edf2e8}.note{font-size:11px;color:#68736a;line-height:1.55;margin:10px 0 0}.status{font-size:12px;line-height:1.5;background:#eef3e8;color:#28563c;border-radius:10px;padding:12px;margin:12px 0 0;white-space:pre-line}.status.error{background:#f9e9df;color:#86442c}details{margin-top:19px;border-top:1px solid #dfe5d9;padding-top:16px}summary{font-size:12px;font-weight:bold;cursor:pointer;list-style-position:outside;margin-left:13px}.rules{margin-top:12px;max-height:230px;overflow:auto}.rule{padding:10px 0;border-bottom:1px solid #e5e9df}.rule-top{font-size:12px;overflow-wrap:anywhere;font-weight:bold}.rule-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}.evidence{font-size:10px;color:#68736a}select{border:1px solid #d2dacc;border-radius:6px;background:white;color:#344d3a;padding:5px;font-size:11px;max-width:150px}.add{display:flex;gap:6px;margin-top:12px}.add input{width:100%;min-width:0;border:1px solid #d2dacc;border-radius:8px;padding:9px;font-size:12px;background:white;color:#27372b}.add button{background:#e5eddf;border:0;border-radius:8px;color:#34583d;padding:9px 12px;font-size:12px}.setting{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.4;margin:12px 0}.setting input{accent-color:#285f49;margin:2px 0 0}.threshold{display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-top:13px}.reset{border:0;background:none;padding:0;font-size:11px;color:#8b553f;text-decoration:underline;margin-top:16px}.footer{padding:13px 24px;background:#edf2e8;color:#657561;font-size:10px;line-height:1.5}
       @media(prefers-reduced-motion:no-preference){.panel{animation:enter .16s ease-out}@keyframes enter{from{transform:translateY(6px);opacity:0}to{transform:translateY(0);opacity:1}}}
@@ -36,10 +36,32 @@
         </details>
       </div>
       <div class="footer">LOCAL BY DESIGN · No server, AI service or analytics.<br>Sender addresses, counts and conversation IDs stay in this Chrome profile.</div>
-    </section>
-    <div class="dock"><button class="launch" id="launch"><span>◒</span> Select usual deletes</button><button class="gear" id="gear" aria-label="Open Usual Delete settings" title="Settings & learning">⚙</button></div>`;
+    </section><div class="toast" id="toast" role="status" aria-live="polite" hidden></div>`;
   document.documentElement.append(host);
   const $ = id => shadow.getElementById(id);
+  const toolbarHost = document.createElement('span');
+  toolbarHost.id = 'usual-delete-toolbar';
+  const toolbarShadow = toolbarHost.attachShadow({mode: 'open'});
+  toolbarShadow.innerHTML = `<style>
+    :host{display:inline-flex;align-items:center;vertical-align:middle;margin:0 6px 0 2px;color:inherit}
+    button{appearance:none;border:0;background:transparent;color:inherit;border-radius:4px;height:32px;padding:0 9px;font:500 12px Arial,sans-serif;white-space:nowrap;opacity:.75;cursor:pointer}
+    button:hover{background:#80808020;opacity:1}button:focus-visible{outline:2px solid currentColor;outline-offset:1px}button:disabled{opacity:.4;cursor:wait}
+  </style><button id="toolbar-select" title="Select matching unread inbox conversations">Select usual deletes</button>`;
+  const toolbarButton = toolbarShadow.getElementById('toolbar-select');
+  function mountToolbar() {
+    const anchor = G.toolbarAnchor();
+    if (!anchor?.parentElement) { toolbarHost.remove(); $('toast').hidden = true; return; }
+    if (anchor.nextElementSibling !== toolbarHost) anchor.after(toolbarHost);
+    // Native toolbar icons use image styling, so their inherited text color can
+    // remain black in Gmail's dark theme. Choose readable text from the backdrop.
+    for (let parent = anchor.parentElement; parent; parent = parent.parentElement) {
+      const color = getComputedStyle(parent).backgroundColor.match(/[\d.]+/g)?.map(Number);
+      if (!color || (color.length > 3 && color[3] < .95)) continue;
+      const brightness = (color[0] * 299 + color[1] * 587 + color[2] * 114) / 1000;
+      toolbarHost.style.color = brightness < 140 ? '#e8eaed' : '#444746';
+      break;
+    }
+  }
   let account = null;
   let accountId = null;
   let busy = false;
@@ -48,14 +70,26 @@
   let generation = 0;
   let selectionQuery = null;
   let resetTimer;
+  let toastTimer;
 
   function status(text, error = false) {
     $('status').hidden = !text;
     $('status').textContent = text;
     $('status').classList.toggle('error', error);
+    clearTimeout(toastTimer);
+    $('toast').hidden = true;
+    if (text && !error && $('panel').hidden && toolbarHost.isConnected) {
+      const rect = toolbarHost.getBoundingClientRect();
+      $('toast').textContent = text.split(/(?<=\.)\s/)[0];
+      $('toast').style.left = `${Math.max(16, Math.min(rect.left, window.innerWidth - 346))}px`;
+      $('toast').style.top = `${rect.bottom + 8}px`;
+      $('toast').hidden = false;
+      toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4500);
+    }
   }
   function panel(open = true) {
     $('panel').hidden = !open;
+    $('toast').hidden = true;
     if (open) refresh().catch(error => status(error.message, true));
   }
   async function rpc(type, data = {}) {
@@ -105,9 +139,10 @@
   async function run(action) {
     if (busy) return;
     busy = true;
-    for (const id of ['select', 'launch', 'learn', 'reset']) $(id).disabled = true;
+    for (const id of ['select', 'learn', 'reset']) $(id).disabled = true;
+    toolbarButton.disabled = true;
     try { await action(); } catch (error) { $('panel').hidden = false; status(error.message, true); }
-    finally { busy = false; for (const id of ['select', 'launch', 'learn', 'reset']) $(id).disabled = false; }
+    finally { busy = false; for (const id of ['select', 'learn', 'reset']) $(id).disabled = false; toolbarButton.disabled = false; }
   }
   function guard(token, id, hash) {
     if (generation !== token || G.accountEmail() !== id || G.routeKey(location.hash) !== G.routeKey(hash)) throw new Error('Stopped because the Gmail view changed. Try again from your inbox.');
@@ -115,8 +150,7 @@
   }
   async function selectUsual() {
     await refresh();
-    $('panel').hidden = false;
-    if (!C.eligibleSenders(account).length) { status('First, click “Learn from Trash” or add a sender under Manage sender rules.'); return; }
+    if (!C.eligibleSenders(account).length) { $('panel').hidden = false; status('First, click “Learn from Trash” or add a sender under Manage sender rules.'); return; }
     let hash = location.hash;
     const token = ++generation;
     const id = accountId;
@@ -233,12 +267,14 @@
       try { await rpc('events', {events: [{id: row.id, email: row.email, type: 'opened'}]}); } catch (_) {}
     }, 1000);
   }, true);
-  $('gear').addEventListener('click', () => panel($('panel').hidden));
   $('close').addEventListener('click', () => panel(false));
-  $('launch').addEventListener('click', () => run(selectUsual));
+  toolbarButton.addEventListener('click', () => run(selectUsual));
   $('select').addEventListener('click', () => run(selectUsual));
   $('learn').addEventListener('click', () => run(learnTrash));
-  shadow.addEventListener('keydown', event => { if (event.key === 'Escape') { panel(false); $('gear').focus(); } });
+  shadow.addEventListener('keydown', event => { if (event.key === 'Escape') { panel(false); toolbarButton.focus(); } });
+  document.addEventListener('pointerdown', event => {
+    if (!$('panel').hidden && !busy && !event.composedPath().includes(host) && !event.composedPath().includes(toolbarHost)) panel(false);
+  }, true);
   $('add-form').addEventListener('submit', event => {
     event.preventDefault();
     run(async () => { await refresh(); await rpc('rule', {email: $('email').value, mode: 'always'}); $('email').value = ''; render(); status('Sender added. Its unread inbox conversations can now be selected.'); });
@@ -257,10 +293,12 @@
   let debounce;
   const observer = new MutationObserver(changes => {
     if (!changes.some(change => !host.contains(change.target))) return;
+    mountToolbar();
     clearTimeout(debounce);
     debounce = setTimeout(() => { observeTrash(); if (account && !$('panel').hidden) render(); }, 800);
   });
   observer.observe(document.body, {childList: true, subtree: true});
-  window.addEventListener('hashchange', () => { clearTimeout(debounce); debounce = setTimeout(() => { observeTrash(); if (account && !$('panel').hidden) render(); }, 900); });
+  window.addEventListener('hashchange', () => { $('toast').hidden = true; mountToolbar(); clearTimeout(debounce); debounce = setTimeout(() => { observeTrash(); if (account && !$('panel').hidden) render(); }, 900); });
+  mountToolbar();
   refresh().then(observeTrash).catch(() => {});
 })();
