@@ -1,4 +1,4 @@
-# Privacy policy — Usual Delete 1.0.2
+# Privacy policy — Usual Delete 1.1.0
 
 Updated November 2, 2026.
 
@@ -8,7 +8,7 @@ Usual Delete is a local Chrome extension that helps you select Gmail conversatio
 
 The content script inspects Gmail’s active account identifier, message-list sender addresses, unread state, star and importance markers, selection checkboxes, and conversation identifiers. These are used to identify repeat unread deletions in Trash and select similar inbox conversations. The extension does not open messages or inspect message bodies or attachments. Subject lines are not used for learning or saved.
 
-The following are stored in this Chrome profile’s extension-local storage: Gmail account email addresses; sender addresses; counts of observed unread deletions and observed opens; rule overrides; settings; observation timestamps; and conversation IDs used to avoid counting the same observation twice.
+The following are stored in this Chrome profile’s extension-local storage: Gmail account email addresses; sender addresses; counts of observed unread deletions and observed opens; rule overrides; settings; observation timestamps; conversation IDs used to avoid counting the same observation twice; the Gmail base URL for the account; daily scan timestamps, status and counts; and temporary scan-session metadata.
 
 ## Transmission and sharing
 
@@ -16,11 +16,11 @@ The extension does not transmit stored information to any developer, third party
 
 ## Retention and controls
 
-Information stays in this browser profile until you forget a sender, reset the account’s learning, or uninstall the extension. The most recent 20,000 observation records are retained per Gmail account; sender counts and rules persist until removed. Settings let you pause learning. Reset applies only to the active Gmail account. Uninstalling removes extension storage. The extension does not encrypt its local records.
+Information stays in this browser profile until you forget a sender, reset the account’s learning, or uninstall the extension. The most recent 20,000 observation records are retained per Gmail account; sender counts and rules persist until removed. Settings let you pause learning or disable automatic daily scans. Daily learning is enabled by default. It uses an inactive Gmail tab while Gmail is available, then closes that temporary tab; activating the tab stops the scan and leaves it open. Reset applies only to the active Gmail account. Uninstalling removes extension storage. The extension does not encrypt its local records.
 
 ## Permissions
 
-`storage` allows local rules and settings to persist. Access to `https://mail.google.com/*` allows the Gmail content script to read message-list metadata and manipulate selection controls. The extension does not request access to other websites, contacts, or Google OAuth credentials.
+`storage` allows local rules and settings to persist. `alarms` schedules daily learning locally while Chrome is running. Access to `https://mail.google.com/*` allows the Gmail content script to read message-list metadata and manipulate selection controls. The extension does not request access to other websites, contacts, or Google OAuth credentials.
 
 ## Mail actions
 

@@ -1,14 +1,17 @@
 /* Shared, dependency-free learning model. No message bodies or subjects are stored. */
 (() => {
   'use strict';
-  const DEFAULTS = Object.freeze({threshold: 3, minRatio: 0.9, acrossPages: true, learning: true});
+  const DEFAULTS = Object.freeze({threshold: 3, minRatio: 0.9, acrossPages: true, learning: true, dailyLearning: true});
+  const DAY = 24 * 60 * 60 * 1000;
   const normalizeEmail = value => {
     if (typeof value !== 'string') return null;
     const email = value.trim().toLowerCase();
     // Restrict addresses to a query-safe, common subset. Never interpolate arbitrary Gmail text.
     return email.length <= 254 && /^[a-z0-9.!#$%&'*+/=?^_`|~-]+@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,63}$/.test(email) ? email : null;
   };
-  const emptyAccount = () => ({settings: {...DEFAULTS}, senders: {}, events: {}, updatedAt: 0});
+  const emptyAccount = () => ({settings: {...DEFAULTS}, senders: {}, events: {}, updatedAt: 0, daily: {lastCompletedAt: 0, nextAttemptAt: 0, status: 'waiting'}});
+  const hydrateAccount = account => ({...emptyAccount(), ...account, settings: {...DEFAULTS, ...account?.settings}, daily: {...emptyAccount().daily, ...account?.daily}});
+  const nextDailyAt = account => Math.max(account.daily?.lastCompletedAt ? account.daily.lastCompletedAt + DAY : 0, account.daily?.nextAttemptAt || 0);
   const qualified = (record, settings = DEFAULTS) => {
     if (!record || record.mode === 'never') return false;
     if (record.mode === 'always') return true;
@@ -44,7 +47,7 @@
     return query;
   }
   const isCandidate = (row, account) => Boolean(row.email && row.unread && !row.starred && !row.important && !row.multipleSenders && qualified(account.senders[row.email], account.settings));
-  const api = {DEFAULTS, normalizeEmail, emptyAccount, qualified, applyEvents, eligibleSenders, buildQuery, isCandidate};
+  const api = {DEFAULTS, DAY, normalizeEmail, emptyAccount, hydrateAccount, nextDailyAt, qualified, applyEvents, eligibleSenders, buildQuery, isCandidate};
   globalThis.UsualCore = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

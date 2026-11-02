@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — 2026-11-02
+
+- Replace the toolbar label with an accessible checklist icon matching Gmail’s controls.
+- Fix pointer flicker by keeping the toolbar node stable during hover-related DOM mutations.
+- Enable automatic daily Trash learning by default for new and existing accounts.
+- Scan in a temporary inactive tab with account validation, cancellation on user takeover, cleanup, retries, and persistence across service-worker restarts.
+- Add scan status and a daily-learning switch; add the local alarms permission.
+- Extend automated coverage for scheduling, migration, hover stability, and the complete background scan.
+
 ## 1.0.2 — 2026-11-02
 
 - Move Select usual deletes into Gmail’s toolbar, between Select all and Refresh.

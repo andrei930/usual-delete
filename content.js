@@ -30,6 +30,8 @@
         <details><summary>Selection & learning</summary>
           <label class="setting"><input type="checkbox" id="across"> <span>Across all result pages<br><span class="note">Search the whole inbox, then use Gmail’s bulk selection. Gmail may include other messages in a matching conversation. Review before deleting.</span></span></label>
           <label class="setting"><input type="checkbox" id="learning"> <span>Learn while I browse Trash and open messages</span></label>
+          <label class="setting"><input type="checkbox" id="daily"> <span>Learn from Trash automatically once a day</span></label>
+          <p class="note" id="daily-status"></p>
           <label class="threshold">Unread deletions to learn a sender <select id="threshold"><option value="3">3</option><option value="5">5</option><option value="10">10</option></select></label>
           <p class="note">Automatic rules also need at least 90% deletion evidence. Opening an unread conversation lowers confidence. Read, starred, important and mixed-sender rows are skipped on the visible page. Gmail search filters apply to other pages.</p>
           <button class="reset" id="reset">Reset learning for this Gmail account</button>
@@ -43,22 +45,29 @@
   toolbarHost.id = 'usual-delete-toolbar';
   const toolbarShadow = toolbarHost.attachShadow({mode: 'open'});
   toolbarShadow.innerHTML = `<style>
-    :host{display:inline-flex;align-items:center;vertical-align:middle;margin:0 6px 0 2px;color:inherit}
-    button{appearance:none;border:0;background:transparent;color:inherit;border-radius:4px;height:32px;padding:0 9px;font:500 12px Arial,sans-serif;white-space:nowrap;opacity:.75;cursor:pointer}
-    button:hover{background:#80808020;opacity:1}button:focus-visible{outline:2px solid currentColor;outline-offset:1px}button:disabled{opacity:.4;cursor:wait}
-  </style><button id="toolbar-select" title="Select matching unread inbox conversations">Select usual deletes</button>`;
+    :host{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:40px;height:20px;flex:0 0 40px;margin:0 4px 0 0;color:inherit;cursor:pointer}
+    button{appearance:none;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;border-radius:4px;width:40px;height:40px;padding:8px;opacity:.8;cursor:pointer}
+    svg{display:block;width:20px;height:20px;pointer-events:none}
+    button:hover{background:#80808020}button:focus-visible{outline:2px solid currentColor;outline-offset:-2px}button:disabled{opacity:.4;cursor:wait}
+  </style><button id="toolbar-select" aria-label="Select usual deletes" title="Select usual deletes"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 7 2 2 3.5-4M12 7h8M3.5 16l2 2 3.5-4M12 16h8"/></svg></button>`;
   const toolbarButton = toolbarShadow.getElementById('toolbar-select');
+  let mountedAnchor = null;
   function mountToolbar() {
     const anchor = G.toolbarAnchor();
-    if (!anchor?.parentElement) { toolbarHost.remove(); $('toast').hidden = true; return; }
-    if (anchor.nextElementSibling !== toolbarHost) anchor.after(toolbarHost);
+    if (!anchor?.parentElement) { toolbarHost.remove(); mountedAnchor = null; $('toast').hidden = true; return; }
+    // Hover tooltips can insert temporary siblings. Don't move a connected button
+    // to chase those mutations: detaching it under the cursor causes flicker.
+    if (toolbarHost.parentElement !== anchor.parentElement || mountedAnchor !== anchor) { anchor.after(toolbarHost); mountedAnchor = anchor; }
+    const height = `${Math.max(16, Math.round(anchor.getBoundingClientRect().height))}px`;
+    if (toolbarHost.style.height !== height) toolbarHost.style.height = height;
     // Native toolbar icons use image styling, so their inherited text color can
     // remain black in Gmail's dark theme. Choose readable text from the backdrop.
     for (let parent = anchor.parentElement; parent; parent = parent.parentElement) {
       const color = getComputedStyle(parent).backgroundColor.match(/[\d.]+/g)?.map(Number);
       if (!color || (color.length > 3 && color[3] < .95)) continue;
       const brightness = (color[0] * 299 + color[1] * 587 + color[2] * 114) / 1000;
-      toolbarHost.style.color = brightness < 140 ? '#e8eaed' : '#444746';
+      const textColor = brightness < 140 ? 'rgb(232, 234, 237)' : 'rgb(68, 71, 70)';
+      if (toolbarHost.style.color !== textColor) toolbarHost.style.color = textColor;
       break;
     }
   }
@@ -71,15 +80,18 @@
   let selectionQuery = null;
   let resetTimer;
   let toastTimer;
+  let initialized = false;
+  let automaticJobId = null;
 
   function status(text, error = false) {
+    if (automaticJobId) return;
     $('status').hidden = !text;
     $('status').textContent = text;
     $('status').classList.toggle('error', error);
     clearTimeout(toastTimer);
     $('toast').hidden = true;
     if (text && !error && $('panel').hidden && toolbarHost.isConnected) {
-      const rect = toolbarHost.getBoundingClientRect();
+      const rect = toolbarButton.getBoundingClientRect();
       $('toast').textContent = text.split(/(?<=\.)\s/)[0];
       $('toast').style.left = `${Math.max(16, Math.min(rect.left, window.innerWidth - 346))}px`;
       $('toast').style.top = `${rect.bottom + 8}px`;
@@ -95,7 +107,7 @@
   async function rpc(type, data = {}) {
     const currentId = G.accountEmail();
     if (!currentId || (accountId && currentId !== accountId)) throw new Error('The Gmail account changed. Open settings again before continuing.');
-    const reply = await chrome.runtime.sendMessage({type: `ud:${type}`, account: currentId, ...data});
+    const reply = await chrome.runtime.sendMessage({type: `ud:${type}`, account: currentId, ...(automaticJobId ? {autoJobId: automaticJobId} : {}), ...data});
     if (!reply?.ok) throw new Error(reply?.error || 'The extension was updated. Refresh Gmail and try again.');
     if (G.accountEmail() !== currentId) throw new Error('The Gmail account changed. Open settings again.');
     accountId = currentId;
@@ -109,6 +121,9 @@
     $('match-count').textContent = G.isInbox() || selectionQuery ? G.rows().filter(row => C.isCandidate(row, account)).length : '—';
     $('across').checked = account.settings.acrossPages;
     $('learning').checked = account.settings.learning;
+    $('daily').checked = account.settings.dailyLearning;
+    $('daily').disabled = !account.settings.learning;
+    $('daily-status').textContent = !account.settings.dailyLearning ? 'Automatic daily learning is off.' : !account.settings.learning ? 'Daily learning is paused with learning.' : account.daily.status === 'running' ? 'Learning from Trash in a temporary background Gmail tab…' : account.daily.lastCompletedAt ? `Last Trash scan: ${new Date(account.daily.lastCompletedAt).toLocaleString()}. Runs again after 24 hours while Gmail is open.` : 'Runs daily while Gmail is open, using a temporary background tab. Missed scans catch up when Gmail is available.';
     $('threshold').value = String(account.settings.threshold);
     const rules = $('rules');
     rules.replaceChildren();
@@ -204,7 +219,7 @@
   function trainingEvents(list) {
     return list.filter(row => row.id && row.email && row.unread && !row.starred && !row.important && !row.multipleSenders).map(row => ({id: row.id, email: row.email, type: 'deleted'}));
   }
-  async function learnTrash() {
+  async function learnTrash({automatic = false} = {}) {
     await refresh();
     if (!account.settings.learning) throw new Error('Enable learning in “Selection & learning” first.');
     const previousHash = location.hash || '#inbox';
@@ -221,11 +236,11 @@
       const check = () => guard(token, id, hash);
       let list;
       try { list = await G.stableRows(check); }
-      catch (error) { if (!G.rows().length && check()) break; throw error; }
+      catch (error) { if (!G.rows().length && G.noResults() && check()) break; throw error; }
       const result = await rpc('events', {events: trainingEvents(list)});
       added += result.added;
       status(`Learned ${added} new unread conversations from ${pages + 1} page${pages ? 's' : ''} of Trash…`);
-      render(); check();
+      if (!automatic) render(); check();
       const next = [...document.querySelectorAll('[role="button"], button')].find(node => G.visible(node) && /^(older|mai vechi)(\b|\s)/i.test(G.label(node)) && node.getAttribute('aria-disabled') !== 'true' && !node.classList.contains('T-I-JE'));
       if (!next || pages === 9) { pages += 1; break; }
       const signature = list.map(row => row.id).join('|');
@@ -239,12 +254,14 @@
       hash = location.hash;
     }
     guard(token, id, hash);
+    if (automatic) return {added, pages};
+    await rpc('scan-complete', {added, pages});
     location.hash = previousHash;
     status(`Learned ${added} new unread conversations from ${pages} page${pages === 1 ? '' : 's'}. ${C.eligibleSenders(account).length} sender${C.eligibleSenders(account).length === 1 ? '' : 's'} ready. Re-scanning the same conversations does not count them twice.`);
     render();
   }
   async function observeTrash() {
-    if (busy || observing || !G.isTrash() || !G.accountEmail()) return;
+    if (!initialized || busy || observing || !G.isTrash() || !G.accountEmail()) return;
     observing = true;
     try {
       await refresh();
@@ -268,7 +285,8 @@
     }, 1000);
   }, true);
   $('close').addEventListener('click', () => panel(false));
-  toolbarButton.addEventListener('click', () => run(selectUsual));
+  toolbarButton.addEventListener('click', event => { event.stopPropagation(); run(selectUsual); });
+  for (const name of ['mousedown', 'mouseup', 'mouseover', 'mouseout', 'pointerover', 'pointerout']) toolbarShadow.addEventListener(name, event => event.stopPropagation());
   $('select').addEventListener('click', () => run(selectUsual));
   $('learn').addEventListener('click', () => run(learnTrash));
   shadow.addEventListener('keydown', event => { if (event.key === 'Escape') { panel(false); toolbarButton.focus(); } });
@@ -279,7 +297,7 @@
     event.preventDefault();
     run(async () => { await refresh(); await rpc('rule', {email: $('email').value, mode: 'always'}); $('email').value = ''; render(); status('Sender added. Its unread inbox conversations can now be selected.'); });
   });
-  for (const [id, key] of [['across', 'acrossPages'], ['learning', 'learning'], ['threshold', 'threshold']]) {
+  for (const [id, key] of [['across', 'acrossPages'], ['learning', 'learning'], ['daily', 'dailyLearning'], ['threshold', 'threshold']]) {
     $(id).addEventListener('change', () => run(async () => { await rpc('settings', {settings: {[key]: id === 'threshold' ? Number($(id).value) : $(id).checked}}); render(); status('Settings saved.'); }));
   }
   $('reset').addEventListener('click', () => {
@@ -287,18 +305,42 @@
     run(async () => { await rpc('reset'); resetArmed = false; $('reset').textContent = 'Reset learning for this Gmail account'; render(); status('Learning and rules erased for this account.'); });
   });
   chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+    if (message?.type === 'ud:auto-cancel' && message.jobId === automaticJobId) { generation += 1; automaticJobId = null; initialized = true; respond({ok: true}); }
     if (message?.type === 'ud:panel') { panel(); respond({ok: true}); }
     if (message?.type === 'ud:select') { run(selectUsual); respond({ok: true}); }
   });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    const value = changes[`account:${accountId}`]?.newValue;
+    if (area === 'local' && value && !automaticJobId) { account = C.hydrateAccount(value); if (!$('panel').hidden) render(); }
+  });
   let debounce;
+  let mountFrame;
+  function scheduleMount() {
+    if (mountFrame) return;
+    mountFrame = requestAnimationFrame(() => { mountFrame = null; mountToolbar(); });
+  }
   const observer = new MutationObserver(changes => {
     if (!changes.some(change => !host.contains(change.target))) return;
-    mountToolbar();
+    scheduleMount();
     clearTimeout(debounce);
     debounce = setTimeout(() => { observeTrash(); if (account && !$('panel').hidden) render(); }, 800);
   });
   observer.observe(document.body, {childList: true, subtree: true});
   window.addEventListener('hashchange', () => { $('toast').hidden = true; mountToolbar(); clearTimeout(debounce); debounce = setTimeout(() => { observeTrash(); if (account && !$('panel').hidden) render(); }, 900); });
   mountToolbar();
-  refresh().then(observeTrash).catch(() => {});
+  (async () => {
+    const email = await G.waitFor(() => G.accountEmail(), 20000);
+    const context = await chrome.runtime.sendMessage({type: 'ud:auto-context', account: email});
+    if (!context?.ok || context.cancelled) return;
+    if (!context.helper) { initialized = true; await refresh(); await observeTrash(); return; }
+    automaticJobId = context.jobId;
+    busy = true;
+    toolbarButton.disabled = true;
+    try {
+      const result = await learnTrash({automatic: true});
+      await rpc('auto-complete', result);
+    } catch (_) {
+      if (automaticJobId) { try { await rpc('auto-complete', {error: true}); } catch (_) {} }
+    } finally { automaticJobId = null; busy = false; toolbarButton.disabled = false; }
+  })().catch(() => {});
 })();

@@ -52,6 +52,9 @@
     return /^(inbox|category\/[^/]+)(\/p\d+)?$/.test(route);
   }
   function isList() { return rows().length > 0; }
+  function noResults() {
+    return [...(main()?.querySelectorAll('.aRv, .aRm, td.TC, [data-empty-results]') || [])].some(node => visible(node) && /no conversations|no messages|nicio conversație|nu există conversații/i.test(node.textContent));
+  }
   async function waitFor(test, timeout = 12000) {
     const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
@@ -109,6 +112,6 @@
   function allResultsSelected() {
     return [...(main()?.querySelectorAll('.v1, .aeF .ya, .Tm .ya, .aeF [role="status"], [data-ud-all-selected]') || [])].some(node => visible(node) && /all\b.*\b(conversations|messages)\b.*\bselected|toate\b.*\bselectate/i.test(node.textContent));
   }
-  const api = {visible, delay, label, main, routeKey, accountEmail, parseRow, rows, isTrash, isInbox, isList, waitFor, stableRows, setSelected, activateButton, bulkControl, toolbarAnchor, allResultsLink, allResultsSelected};
+  const api = {visible, delay, label, main, routeKey, accountEmail, parseRow, rows, isTrash, isInbox, isList, noResults, waitFor, stableRows, setSelected, activateButton, bulkControl, toolbarAnchor, allResultsLink, allResultsSelected};
   globalThis.UsualGmail = api;
 })();

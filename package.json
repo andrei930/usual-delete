@@ -1,8 +1,8 @@
 {
   "name": "usual-delete",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "private": true,
   "description": "Local-first Gmail conversation selector",
-  "scripts": {"test": "node --test tests/core.test.cjs tests/background.test.cjs", "test:browser": "node tests/browser.test.cjs"},
+  "scripts": {"test": "node --test tests/core.test.cjs tests/background.test.cjs tests/daily.test.cjs", "test:browser": "node tests/browser.test.cjs"},
   "devDependencies": {"playwright": "1.64.1"}
 }

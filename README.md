@@ -6,11 +6,13 @@ A Chrome extension for Gmail that selects unread inbox conversations from sender
 
 [Download the latest extension ZIP](https://github.com/andrei930/usual-delete/releases/latest/download/usual-delete.zip) · [Releases](https://github.com/andrei930/usual-delete/releases)
 
-## Version 1.0.2
+## Version 1.1.0
 
-The selection button now sits in Gmail’s toolbar, between Select all and Refresh. Floating buttons have been removed, and successful selection shows only a brief status message. Open **Settings & learning** from the extension’s Chrome toolbar icon when needed.
+The toolbar action is now a Gmail-style checklist icon with an accessible label and tooltip. Its fixed click target stays attached while Gmail shows hover tooltips, fixing pointer flicker.
 
-To update an existing unpacked installation, replace its folder contents, click **Reload** on its Chrome Extensions card, then refresh Gmail. Its permissions and saved learning are unchanged.
+**Daily Trash learning is enabled by default**, including for existing accounts. It scans in a temporary inactive Gmail tab, closes that tab when finished, and leaves the active view unchanged. Settings include an off switch and the last scan time.
+
+To update an existing unpacked installation, replace its folder contents, click **Reload** on its Chrome Extensions card, then refresh Gmail. Saved learning is retained. The new `alarms` permission schedules scans locally; Gmail host access stays limited to `mail.google.com`.
 
 ## Install (no build or Google Cloud setup)
 
@@ -18,9 +20,9 @@ To update an existing unpacked installation, replace its folder contents, click 
 2. In Chrome, open **Manage Extensions** from the Extensions menu, or type `chrome://extensions` in the address bar.
 3. Turn on **Developer mode** in the upper right.
 4. Click **Load unpacked** and select the `usual-delete` folder containing `manifest.json`.
-5. Refresh your Gmail tab. The **Select usual deletes** button appears in Gmail’s toolbar, between Select all and Refresh.
-6. Open **Usual Delete** from Chrome’s Extensions menu (or its pinned icon), choose **Settings & learning**, then **Learn from Trash**. This scans up to 10 pages of unread conversations in Trash and returns to your previous view. It does not open messages. If you prefer, add a complete sender address under **Manage sender rules** instead.
-7. Click **Select usual deletes**. It searches your inbox for qualifying unread mail and selects matching conversations. Review them, then press Gmail’s Delete button yourself.
+5. Refresh your Gmail tab. The checklist icon appears in Gmail’s toolbar, between Select all and Refresh. Its tooltip reads **Select usual deletes**.
+6. Daily learning starts automatically when Gmail is available. Open **Usual Delete** from Chrome’s Extensions menu (or its pinned icon) and choose **Settings & learning** to see scan status, turn daily learning off, run **Learn from Trash** manually, or add sender rules.
+7. Click the checklist icon (**Select usual deletes**). It searches your inbox for qualifying unread mail and selects matching conversations. Review them, then press Gmail’s Delete button yourself.
 
 You can also pin the extension to Chrome’s toolbar and use its popup. No purchase, API key, account connection, or build step is required. This is an unpacked extension, not a Chrome Web Store listing. Chrome or your organization may restrict developer-mode extensions.
 
@@ -34,6 +36,16 @@ You can also pin the extension to Chrome’s toolbar and use its popup. No purch
 - Each Gmail account has separate rules, identified by its email address, rather than the `/u/0` account index. If the active account cannot be identified, actions stop with an explanation.
 - Unread-in-Trash is an estimate of “deleted without opening.” Gmail does not expose a complete historical record of opens through its web interface. Messages that you opened and later marked unread can contribute to that estimate. The extension cannot recover mail already permanently deleted or removed by Gmail’s Trash retention policy.
 - Learning uses exact, complete sender addresses and skips visible conversations with several different sender addresses. It does not infer meaning from subjects or bodies.
+
+## Automatic daily learning
+
+- Enabled by default for new and existing accounts. Each account has its own scan history.
+- Requires Chrome to be running and a Gmail tab open for the account. Missed scans catch up when Gmail is available; the extension does not open new browser windows.
+- Performs at most one successful scheduled scan per 24 hours. A completed manual Trash scan also delays the next scheduled scan by 24 hours.
+- Opens a temporary **inactive** Gmail tab, scans up to 10 pages of unread Trash, and closes that tab. It does not open message bodies or change the active inbox view.
+- If you activate the scan tab or navigate it elsewhere, the automatic scan stops and leaves that tab for you.
+- Failed or interrupted scans are retried after approximately one hour while Gmail is available. Chrome can delay scheduled work when the device is asleep or the browser is closed.
+- Turn off **Learn from Trash automatically once a day** in **Selection & learning** to disable scheduled scans. Turning off learning also pauses the scheduler.
 
 ## What one click selects
 
@@ -54,9 +66,9 @@ Turn off **Across all result pages** to select only matching unread rows on the 
 ## Privacy and permissions
 
 - Runs only on `https://mail.google.com/`.
-- Uses the `storage` permission and Gmail host access. No broad browsing-history, contacts, identity, or Gmail API permissions.
-- Stores sender addresses, per-sender counts and overrides, settings, observation timestamps, and Gmail conversation IDs in `chrome.storage.local` on this Chrome profile.
-- Does not read or save message bodies, attachments, or subject lines for learning. No remote AI, analytics, advertising, or extension network requests.
+- Uses the `storage` and `alarms` permissions and Gmail host access. No broad browsing-history, contacts, identity, or Gmail API permissions.
+- Stores sender addresses, per-sender counts and overrides, settings, observation and scan timestamps, the account’s Gmail base URL, temporary scan-session metadata, and Gmail conversation IDs in `chrome.storage.local` on this Chrome profile.
+- Does not read or save message bodies, attachments, or subject lines for learning. No remote AI, analytics, advertising, or uploads to a developer-operated service.
 - Data is not placed in Chrome sync storage. Anyone with access to your local browser profile may be able to inspect extension data; it is not encrypted by this extension.
 - Reset an account’s learning in the panel with the two-click reset control. Uninstalling removes the extension’s local storage. See [PRIVACY.md](PRIVACY.md).
 
@@ -81,4 +93,4 @@ npm run test:browser
 
 The browser suite launches the actual unpacked extension in an isolated temporary Chromium profile. It intercepts Gmail requests and serves synthetic test messages; it never reads or modifies a live mailbox. Set `CHROMIUM_PATH` to an existing Chromium executable if needed. See [TESTING.md](TESTING.md) for verified scope and remaining limitations.
 
-The implementation follows Chrome’s official [content-script documentation](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts), [local storage API](https://developer.chrome.com/docs/extensions/reference/api/storage), and [message-passing API](https://developer.chrome.com/docs/extensions/develop/concepts/messaging). Gmail’s search syntax and conversation-level caveat are documented in [Gmail Help](https://support.google.com/mail/answer/7190?hl=en).
+The implementation follows Chrome’s official [content-script documentation](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts), [local storage API](https://developer.chrome.com/docs/extensions/reference/api/storage), [alarm API](https://developer.chrome.com/docs/extensions/reference/api/alarms), and [message-passing API](https://developer.chrome.com/docs/extensions/develop/concepts/messaging). Gmail’s search syntax and conversation-level caveat are documented in [Gmail Help](https://support.google.com/mail/answer/7190?hl=en).

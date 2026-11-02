@@ -8,14 +8,18 @@ function harness() {
   const data = {};
   let listener;
   let failWrite = false;
-  const context = vm.createContext({structuredClone, console, chrome: {
+  const event = () => ({addListener: () => {}});
+  const context = vm.createContext({structuredClone, console, URL, crypto: require('node:crypto').webcrypto, chrome: {
     storage: {local: {
-      get: async key => { await new Promise(r => setTimeout(r, 1)); return {[key]: structuredClone(data[key])}; },
-      set: async values => { if (failWrite) { failWrite = false; throw new Error('Disk full'); } Object.assign(data, structuredClone(values)); }
+      get: async key => { await new Promise(r => setTimeout(r, 1)); return key === null ? structuredClone(data) : {[key]: structuredClone(data[key])}; },
+      set: async values => { if (failWrite) { failWrite = false; throw new Error('Disk full'); } Object.assign(data, structuredClone(values)); },
+      remove: async key => { delete data[key]; }
     }},
-    runtime: {onMessage: {addListener: callback => { listener = callback; }}}
+    alarms: {onAlarm: event(), create: async () => {}, clear: async () => {}},
+    tabs: {onActivated: event(), onRemoved: event(), onUpdated: event(), query: async () => []},
+    runtime: {onMessage: {addListener: callback => { listener = callback; }}, onStartup: event(), onInstalled: event()}
   }});
-  context.importScripts = filename => vm.runInContext(fs.readFileSync(path.join(root, filename), 'utf8'), context);
+  context.importScripts = (...filenames) => { for (const filename of filenames) vm.runInContext(fs.readFileSync(path.join(root, filename), 'utf8'), context); };
   vm.runInContext(fs.readFileSync(path.join(root, 'background.js'), 'utf8'), context);
   const send = (type, payload = {}, sender = {tab: {id: 1}, url: 'https://mail.google.com/mail/u/0/'}) => new Promise(resolve => listener({type: `ud:${type}`, account: 'me@example.com', ...payload}, sender, resolve));
   return {send, data, fail: () => { failWrite = true; }};
@@ -61,4 +65,20 @@ test('reset erases only the requested account', async () => {
   await h.send('rule', {account: 'other@example.com', email: 'b@example.com', mode: 'always'});
   assert.equal(Object.keys((await h.send('reset')).account.senders).length, 0);
   assert.equal(Object.keys((await h.send('get', {account: 'other@example.com'})).account.senders).length, 1);
+});
+test('daily learning is enabled by default and old account settings are preserved', async () => {
+  const h = harness();
+  h.data['account:me@example.com'] = {settings: {learning: false, threshold: 5}, senders: {}, events: {}, updatedAt: 1};
+  const result = await h.send('get');
+  assert.equal(result.account.settings.dailyLearning, true);
+  assert.equal(result.account.settings.learning, false);
+  assert.equal(result.account.settings.threshold, 5);
+  assert.equal(result.account.gmailBaseUrl, 'https://mail.google.com/mail/u/0/');
+});
+test('daily learning can be switched off and manual scans delay the next scan', async () => {
+  const h = harness();
+  assert.equal((await h.send('settings', {settings: {dailyLearning: false}})).account.settings.dailyLearning, false);
+  const result = await h.send('scan-complete', {added: 4, pages: 2});
+  assert.ok(result.account.daily.lastCompletedAt > 0);
+  assert.equal(result.account.daily.lastSource, 'manual');
 });

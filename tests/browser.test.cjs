@@ -20,11 +20,16 @@ const extensionPath = path.resolve(__dirname, '..');
   try {
     const fixture = await fs.readFile(path.join(__dirname, 'gmail-fixture.html'), 'utf8');
     await context.route('https://mail.google.com/**', route => route.fulfill({contentType: 'text/html', body: fixture}));
+    const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
+    // Keep the existing manual-selection scenarios deterministic; test daily scans below.
+    await worker.evaluate(async () => {
+      const account = UsualCore.emptyAccount(); account.settings.dailyLearning = false;
+      await chrome.storage.local.set({'account:me@example.com': account, 'account:other@example.com': account});
+    });
     const page = await context.newPage();
     page.on('pageerror', error => errors.push(error.message));
     await page.goto('https://mail.google.com/mail/u/0/#inbox');
     await page.locator('#usual-delete-root').waitFor({state: 'attached'});
-    const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
     check(worker.url().endsWith('/background.js'), 'Manifest V3 service worker loads');
     const panel = page.locator('#usual-delete-root');
     const toolbar = page.locator('#usual-delete-toolbar');
@@ -35,6 +40,20 @@ const extensionPath = path.resolve(__dirname, '..');
     const idle = () => page.waitForFunction(() => !document.getElementById('usual-delete-root').shadowRoot.getElementById('select').disabled);
     await toolbar.waitFor();
     check(await toolbar.evaluate(node => node.previousElementSibling.id === 'bulk' && node.nextElementSibling.id === 'refresh'), 'selection button sits between Select all and Refresh');
+    const icon = toolbar.getByRole('button', {name: 'Select usual deletes'});
+    check(await icon.locator('svg').count() === 1 && (await icon.textContent()).trim() === '', 'toolbar action is an accessible icon without a text label');
+    await page.evaluate(() => {
+      const button = document.getElementById('usual-delete-toolbar');
+      window.hoverMoves = 0;
+      window.hoverObserver = new MutationObserver(changes => { for (const change of changes) if ([...change.removedNodes].includes(button)) window.hoverMoves++; });
+      window.hoverObserver.observe(button.parentElement, {childList: true});
+    });
+    await icon.hover();
+    await page.evaluate(() => { const tooltip = document.createElement('span'); tooltip.id = 'temporary-gmail-tooltip'; document.getElementById('bulk').parentElement.style.alignItems = 'flex-start'; document.getElementById('bulk').after(tooltip); });
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => window.hoverMoves === 0) && await icon.evaluate(node => getComputedStyle(node).cursor === 'pointer'), 'Gmail hover mutations do not move the icon or change its pointer cursor');
+    check(await icon.evaluate(node => { const r = node.getBoundingClientRect(), b = document.getElementById('bulk').getBoundingClientRect(); return Math.abs(r.top + r.height / 2 - b.top - b.height / 2) < 1; }), 'icon alignment follows Gmail’s compact native control height');
+    await page.evaluate(() => { window.hoverObserver.disconnect(); document.getElementById('bulk').parentElement.style.alignItems = 'center'; document.getElementById('temporary-gmail-tooltip').remove(); });
     check(await panel.locator('#launch, #gear').count() === 0 && !await panel.locator('#panel').isVisible(), 'no floating action buttons or automatic settings panel');
     await toolbar.evaluate(node => node.remove());
     await toolbar.waitFor();
@@ -138,6 +157,41 @@ const extensionPath = path.resolve(__dirname, '..');
     await panel.locator('#sender-details summary').click();
     await panel.locator('#close').click();
     await page.screenshot({path: process.env.PREVIEW_PATH || path.join(extensionPath, '..', 'usual-delete-preview.png')});
+    check(await worker.evaluate(() => UsualCore.DEFAULTS.dailyLearning), 'daily learning is enabled by default for new and migrated accounts');
+    await worker.evaluate(async () => {
+      const key = 'account:me@example.com'; const account = (await chrome.storage.local.get(key))[key];
+      account.daily.lastCompletedAt = Date.now() - UsualCore.DAY - 1000; account.daily.nextAttemptAt = 0;
+      await chrome.storage.local.set({[key]: account});
+    });
+    await openPanel();
+    await panel.locator('details').nth(1).locator('summary').click();
+    const originalUrl = page.url(); const previousOpened = (await page.evaluate(() => window.testState)).opened;
+    const helperCreated = context.waitForEvent('page');
+    await panel.locator('#daily').check();
+    const helper = await helperCreated;
+    helper.on('pageerror', error => errors.push(error.message));
+    // Extension-created initial navigations can start before Playwright attaches
+    // request interception. Replay it through the fixture; never use a Gmail login.
+    await helper.goto('https://mail.google.com/mail/u/0/#search/' + encodeURIComponent('in:trash is:unread'));
+    try { await helper.waitForEvent('close', {timeout: 45000}); }
+    catch (error) {
+      console.error('DAILY DEBUG', await worker.evaluate(async () => {
+        const data = await chrome.storage.local.get(null);
+        return {job: data['ud:daily-job'], daily: data['account:me@example.com']?.daily, tabs: (await chrome.tabs.query({url: 'https://mail.google.com/*'})).map(t => ({id: t.id, active: t.active, url: t.url}))};
+      }), await helper.evaluate(() => {
+        const root = document.getElementById('usual-delete-root')?.shadowRoot;
+        return {hash: location.hash, rows: document.querySelectorAll('tr.zA').length, account: root?.getElementById('account')?.textContent, status: root?.getElementById('status')?.textContent};
+      }), errors);
+      throw error;
+    }
+    const automatic = await worker.evaluate(async () => (await chrome.storage.local.get('account:me@example.com'))['account:me@example.com']);
+    check(automatic.daily.lastSource === 'automatic' && automatic.daily.lastPages === 2 && Date.now() - automatic.daily.lastCompletedAt < 30000, 'daily learning scans multiple Trash pages and records completion');
+    check(page.url() === originalUrl && (await page.evaluate(() => window.testState)).opened === previousOpened && (await page.evaluate(() => window.testState)).deleted === 0, 'automatic learning leaves the user’s view and messages untouched');
+    const scheduled = await worker.evaluate(async () => { await queue; return chrome.alarms.get('ud:daily-learning'); });
+    check(scheduled && scheduled.scheduledTime >= automatic.daily.lastCompletedAt + 24 * 60 * 60 * 1000, 'the next automatic scan is scheduled no earlier than 24 hours later');
+    await panel.locator('#daily').uncheck();
+    await idle();
+    check(!(await worker.evaluate(async () => (await chrome.storage.local.get('account:me@example.com'))['account:me@example.com'].settings.dailyLearning)), 'automatic learning can be disabled in settings');
     console.log(`${checks} browser checks passed using the actual unpacked extension on intercepted synthetic Gmail pages. No live Gmail data was accessed.`);
   } finally {
     await context.close();

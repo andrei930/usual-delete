@@ -1,6 +1,16 @@
 # Verification report
 
-Verified November 2, 2026. Extension version 1.0.2.
+Verified November 2, 2026. Extension version 1.1.0.
+
+## Live verification for 1.1.0
+
+The update was installed in an existing Chrome Gmail session. Daily learning was enabled by default and completed a multi-page automatic scan in an inactive tab. The helper closed on completion, and the next Chrome alarm was verified approximately 24 hours later. The native toolbar icon was checked for alignment with Gmail’s compact controls. No email body was opened and no mail was deleted during this verification.
+
+## Scheduling and icon verification for 1.1.0
+
+Automated coverage includes default-on migration, once-per-24-hours scheduling, retry timing, reopening Gmail, paused learning, service-worker restart recovery, account/lease validation, cancellation when a helper is activated or navigated, and cleanup after signed-out redirects. Browser integration covers the complete two-page background scan, automatic tab closure, preservation of the original view and message state, and the next Chrome alarm.
+
+The icon has an accessible label, no visible text, and a stable pointer target. A hover regression inserts a temporary Gmail-like sibling and verifies that the toolbar control is not detached.
 
 ## Toolbar verification for 1.0.2
 
@@ -16,8 +26,8 @@ Two live DOM differences were confirmed and fixed: Gmail puts importance state o
 
 ## Completed
 
-- **19 passing Node tests** for sender learning, minimum evidence, negative feedback, overrides, safe search construction, invalid inputs, event deduplication, account isolation, concurrent writes across tabs, paused learning, storage failures, sender removal, and reset scope.
-- **25 passing browser checks** using the actual unpacked Manifest V3 extension, including its actual service worker and Chrome local-storage API, in a fresh temporary Chromium for Testing profile controlled by Playwright 1.64.1.
+- **32 passing Node tests** for sender learning, minimum evidence, negative feedback, overrides, safe search construction, invalid inputs, event deduplication, account isolation, concurrent writes across tabs, paused learning, storage failures, sender removal, and reset scope.
+- **33 passing browser checks** using the actual unpacked Manifest V3 extension, including its actual service worker and Chrome local-storage API, in a fresh temporary Chromium for Testing profile controlled by Playwright 1.64.1.
 - The browser checks cover first-run state; two-page Trash training; returning to the original inbox; repeated scan deduplication; no messages opened during learning; current-page protection of read/starred/important/mixed-sender/unknown-sender rows; no automatic deletion; manual rules; never-select overrides; clearing unrelated selections when no candidates match; avoiding global selection when mixed-sender rows are visible; native selection across all search pages; inbox-only unread search; repeated selection; navigation cancellation; opening-based negative feedback; confidence reduction; Gmail account changes; and absence of browser JavaScript errors.
 - Syntax checks for production JavaScript, manifest parsing, icon presence and dimensions, and ZIP integrity.
 - Visual inspection of the extension’s settings panel in a synthetic Gmail inbox. The preview file shows synthetic messages, not anyone’s real mailbox.
