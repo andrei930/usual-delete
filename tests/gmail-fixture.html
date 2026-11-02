@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Gmail — synthetic test inbox</title>
+<style>
+body{margin:0;background:#f6f8fc;font:14px Arial,sans-serif;color:#263248}header{height:80px;display:flex;align-items:center;gap:30px;padding:0 30px}header b{font-size:25px;color:#525c69;font-weight:500}header span{background:#eaf1fb;border-radius:24px;padding:17px 30px;color:#6a7280;flex:1}header a{font-size:12px;color:#62746f;text-decoration:none}aside{position:absolute;left:20px;top:110px;width:210px;color:#6a7180;line-height:44px}aside b{display:block;border-radius:24px;padding:0 15px;background:#d3e3fd;color:#174a88}main{margin:20px 28px 40px 255px;background:white;border-radius:18px;min-height:640px;overflow:hidden}[role=toolbar]{display:flex;align-items:center;padding:15px 22px;gap:25px;border-bottom:1px solid #eee}.T-Jo{width:16px;height:16px;border:1.5px solid #849293;border-radius:3px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.T-Jo[aria-checked=true]{background:#366a54;color:white}.T-Jo[aria-checked=true]:after{content:'✓';font-size:12px}[role=button]{cursor:pointer}.v1{padding:14px 20px;text-align:center;background:#edf4e8;font-size:12px}.v1:empty{display:none}.ya{color:#28623f;text-decoration:underline;cursor:pointer}.zA{height:57px;background:#fff;border-bottom:1px solid #e7ebef;cursor:pointer}.zE{font-weight:600;background:#f0f4fa}.zA td{padding:0 10px;border-bottom:1px solid #e7ebef}.zA td:first-child{padding-left:22px;width:40px}.yW{width:180px;font-size:13px}.subject{font-size:13px}.date{font-size:11px;color:#74817a;text-align:right;width:75px}.T-KT{font-size:20px;color:#8a9894}.T-KT-Jp{color:#d8a528}.a9q{font-size:15px;color:#ccd1cc}.important{color:#d8a528}table{border-collapse:collapse;width:100%}.quiet{padding:30px;font-size:12px;color:#8d9691}small{color:#8a938e;font-weight:400}
+</style>
+<header role="banner"><b>✉ Gmail</b><span>Search mail</span><a href="https://accounts.google.com/SignOutOptions" aria-label="Google Account: Demo (me@example.com)">Demo account</a></header>
+<aside><b>Inbox</b><div> &nbsp; Starred</div><div> &nbsp; Snoozed</div><div> &nbsp; Sent</div><div> &nbsp; Trash</div><small>Synthetic test messages</small></aside>
+<main role="main"><div role="toolbar"><div role="checkbox" class="T-Jo" aria-label="Select" aria-checked="false" tabindex="0" id="bulk"></div><span role="button" aria-label="Delete" id="delete">♲</span><span role="button" class="T-I" aria-label="Older" id="older">Older →</span></div><div class="v1" id="banner"></div><table><tbody id="messages"></tbody></table><div class="quiet">DEMO INBOX · Synthetic data used to test the extension</div></main>
+<script>
+window.testState = {opened:0, deleted:0, all:false, trashPage:0, includeMixed:true};
+const inbox=[
+  {id:'i1',email:'offers@example.com',name:'The Daily Edit',subject:'A few good things for your week',unread:true},
+  {id:'i2',email:'offers@example.com',name:'The Daily Edit',subject:'The November collection has arrived',unread:true},
+  {id:'i3',email:'shop@example.com',name:'Field Supply',subject:'Your next adventure starts here',unread:true},
+  {id:'i4',email:'boss@example.com',name:'Jamie Chen',subject:'Notes for tomorrow’s meeting',unread:true},
+  {id:'i5',email:'offers@example.com',name:'The Daily Edit',subject:'Your receipt — saved for later',unread:true,starred:true},
+  {id:'i6',email:'offers@example.com',name:'The Daily Edit',subject:'An important update to your account',unread:true,important:true},
+  {id:'i7',email:'offers@example.com',name:'The Daily Edit',subject:'Your favorite reads from last month',unread:false},
+  {id:'i8',email:'offers@example.com',name:'The Daily Edit, Jamie',subject:'A conversation with several senders',unread:true,mixed:true}
+];
+const trash=[
+  [{id:'t1',email:'offers@example.com',name:'The Daily Edit',subject:'Weekend offers',unread:true},{id:'t2',email:'offers@example.com',name:'The Daily Edit',subject:'Last chance',unread:true}],
+  [{id:'t3',email:'offers@example.com',name:'The Daily Edit',subject:'This week only',unread:true},{id:'t4',email:'shop@example.com',name:'Field Supply',subject:'A little inspiration',unread:true}]
+];
+let active=[];
+function routeText(){return decodeURIComponent(location.hash.replace(/\+/g,' '));}
+function updateBanner(){
+  const checks=[...document.querySelectorAll('tr [role=checkbox]')];
+  const count=checks.filter(n=>n.getAttribute('aria-checked')==='true').length;
+  document.getElementById('bulk').setAttribute('aria-checked', count===checks.length&&count?'true':count?'mixed':'false');
+  const banner=document.getElementById('banner'); banner.replaceChildren();
+  if(count===checks.length&&count&&routeText().startsWith('#search/in:inbox')){
+    banner.append(document.createTextNode('All conversations on this page are selected. '));
+    const link=document.createElement('span');link.className='ya';link.setAttribute('role','link');link.tabIndex=0;link.textContent='Select all conversations that match this search';
+    link.onclick=()=>{window.testState.all=true;banner.textContent='All 180 conversations in this search are selected.';};banner.append(link);
+  }
+}
+function renderFixture(){
+  const text=routeText(); const inTrash=text.startsWith('#search/in:trash')||text==='#trash';
+  if(inTrash){window.testState.trashPage=/\/p2$/.test(text)?1:0;active=trash[window.testState.trashPage];}
+  else if(text.startsWith('#search/in:inbox'))active=inbox.filter(r=>text.includes(r.email)&&r.unread&&!r.starred&&!r.important&&(window.testState.includeMixed||!r.mixed));
+  else if(/^#inbox(?:\/p\d+)?$/.test(text)||!text)active=inbox;
+  else active=[];
+  const body=document.getElementById('messages');body.replaceChildren();
+  for(const r of active){
+    const tr=document.createElement('tr');tr.className='zA'+(r.unread?' zE':'');tr.setAttribute('data-legacy-thread-id',r.id);
+    tr.innerHTML=`<td><div role="checkbox" aria-label="Select conversation" aria-checked="false" class="T-Jo" tabindex="0"></div></td><td><span class="T-KT${r.starred?' T-KT-Jp':''}" aria-label="${r.starred?'Starred':'Not starred'}">${r.starred?'★':'☆'}</span></td><td><div role="switch" aria-checked="${Boolean(r.important)}" aria-label="${r.important?'Important according to Google magic':'Not important'}"><span class="a9q${r.important?' important':''}">›</span></div></td><td class="yW"><span email="${r.email}">${r.name}</span>${r.mixed?'<span email="boss@example.com"></span>':''}</td><td class="subject">${r.subject} <small>— A small update, just for you…</small></td><td class="date">10:42</td>`;
+    tr.querySelector('[role=checkbox]').onclick=e=>{e.stopPropagation();const cb=e.currentTarget;cb.setAttribute('aria-checked',cb.getAttribute('aria-checked')==='true'?'false':'true');window.testState.all=false;updateBanner();};
+    tr.querySelector('.subject').onclick=()=>{window.testState.opened++;location.hash='#inbox/'+r.id;};
+    body.append(tr);
+  }
+  const older=document.getElementById('older');older.setAttribute('aria-disabled',inTrash&&window.testState.trashPage===0?'false':'true');
+  window.testState.all=false;updateBanner();
+}
+let olderPressed=false;
+document.getElementById('older').onmousedown=()=>{olderPressed=true;};
+document.getElementById('older').onmouseup=()=>{if(olderPressed&&document.getElementById('older').getAttribute('aria-disabled')==='false')location.hash='#search/'+encodeURIComponent('in:trash is:unread')+'/p2';olderPressed=false;};
+document.getElementById('bulk').onclick=()=>{const checked=document.getElementById('bulk').getAttribute('aria-checked')==='true';for(const cb of document.querySelectorAll('tr [role=checkbox]'))cb.setAttribute('aria-checked',String(!checked));window.testState.all=false;updateBanner();};
+document.getElementById('delete').onclick=()=>{window.testState.deleted++;};
+window.addEventListener('hashchange',renderFixture);renderFixture();
+</script></html>
